@@ -19,4 +19,10 @@ HWVAL Studio: a cross-platform (macOS, Windows, Linux) PySide6 desktop app with 
 | [soccentric-stm32-zephyr-application](https://github.com/soccentric-stm32/soccentric-stm32-zephyr-application) | The same demo on Zephyr RTOS |
 | [soccentric-stm32-validation-gui](https://github.com/soccentric-stm32/soccentric-stm32-validation-gui) | PySide6 GUI: runs HWVAL tests, updates and flashes firmware |
 
+## License
+
+[MIT](LICENSE) © 2026 Sandesh Ghimire. Use it as a starting point for your own
+products. Third-party code (STM32CubeF7, FreeRTOS, LwIP, Embassy, Zephyr and
+others) is fetched at build time and keeps its own licence.
+
 Author: Sandesh Ghimire <sandesh@soccentric.com>
