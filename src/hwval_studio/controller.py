@@ -7,6 +7,7 @@ blocks on I/O; results arrive as Qt signals (ARC-002).
 
 from __future__ import annotations
 
+import hashlib
 import threading
 import time
 from collections.abc import Callable
@@ -354,6 +355,13 @@ class StudioController(QObject):
                 last = exc
                 time.sleep(0.25)
         raise DeviceError(f"could not reconnect as {expected_role}: {last}")
+
+    @staticmethod
+    def _file_sha256(path: Path) -> str:
+        try:
+            return hashlib.sha256(path.read_bytes()).hexdigest()
+        except OSError:
+            return ""
 
     def _fill_demo_identity(self, status: dict[str, Any]) -> dict[str, Any]:
         """Status omits the identity strings; HelloReply already has them."""
@@ -1166,7 +1174,7 @@ class StudioController(QObject):
         self._swd_task(
             "Flash HWVAL",
             run,
-            record=("SWD_FLASH", path.name, "", "HWVAL", ""),
+            record=("SWD_FLASH", path.name, self._file_sha256(path), "HWVAL", ""),
         )
 
     def provision_product(self, boot_image: str | Path) -> None:
@@ -1178,7 +1186,7 @@ class StudioController(QObject):
         self._swd_task(
             "Provision product configuration",
             run,
-            record=("PROVISION", path.name, "", "BOOT", ""),
+            record=("PROVISION", path.name, self._file_sha256(path), "BOOT", ""),
         )
 
     def restore_bench(self, hwval_image: str | Path | None = None) -> None:
@@ -1191,7 +1199,7 @@ class StudioController(QObject):
         self._swd_task(
             "Restore bench configuration",
             run,
-            record=("RESTORE_BENCH", file_name, "", "HWVAL", ""),
+            record=("RESTORE_BENCH", file_name, self._file_sha256(path) if path else "", "HWVAL", ""),
         )
 
     def read_option_bytes(self) -> None:
