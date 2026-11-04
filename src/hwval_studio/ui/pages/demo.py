@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -56,6 +56,10 @@ class LedControl(QWidget):
         self.period.setPageStep(100)
         self.period.setValue(1000)
         self.period.valueChanged.connect(self._changed_slider)
+        self._slider_timer = QTimer(self)
+        self._slider_timer.setSingleShot(True)
+        self._slider_timer.setInterval(150)
+        self._slider_timer.timeout.connect(self._changed)
         bottom.addWidget(self.period, 1)
         self.period_label = QLabel("1000 ms")
         self.period_label.setObjectName("Secondary")
@@ -65,7 +69,9 @@ class LedControl(QWidget):
 
     def _changed_slider(self, value: int) -> None:
         self.period_label.setText(f"{value} ms")
-        self._changed()
+        # Debounce: a drag emits one valueChanged per tick; sending a
+        # SetLed request for each would flood the link.
+        self._slider_timer.start()
 
     def _changed(self) -> None:
         self.changed.emit(self.led, PATTERN_VALUES.get(self.pattern.currentText(), 0), self.period.value())
