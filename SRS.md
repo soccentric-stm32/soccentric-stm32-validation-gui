@@ -98,10 +98,10 @@ Plots and graphs of measured values are planned for a later version (§18).
 
 | ID | Document |
 |---|---|
-| [HW] | [soccentric-stm32-validation-firmware/Hardware.md](https://github.com/soccentric-stm32/soccentric-stm32-validation-firmware/blob/HEAD/Hardware.md) |
-| [HWVAL] | [soccentric-stm32-validation-firmware/SRS.md](https://github.com/soccentric-stm32/soccentric-stm32-validation-firmware/blob/HEAD/SRS.md) — SRS-HWVAL-F767 |
-| [BOOT] | [soccentric-stm32-bootloader/SRS.md](https://github.com/soccentric-stm32/soccentric-stm32-bootloader/blob/HEAD/SRS.md) — SRS-BOOT-F767 |
-| [DEMO] | [soccentric-stm32-application/SRS.md](https://github.com/soccentric-stm32/soccentric-stm32-application/blob/HEAD/SRS.md) — SRS-DEMO-F767 |
+| [HW] | [validation-firmware/Hardware.md](https://github.com/soccentric-stm32/validation-firmware/blob/HEAD/Hardware.md) |
+| [HWVAL] | [validation-firmware/SRS.md](https://github.com/soccentric-stm32/validation-firmware/blob/HEAD/SRS.md) — SRS-HWVAL-F767 |
+| [BOOT] | [bootloader/SRS.md](https://github.com/soccentric-stm32/bootloader/blob/HEAD/SRS.md) — SRS-BOOT-F767 |
+| [DEMO] | [app-c-freertos/SRS.md](https://github.com/soccentric-stm32/app-c-freertos/blob/HEAD/SRS.md) — SRS-DEMO-F767 |
 | [HIG] | Apple Human Interface Guidelines (macOS) — visual reference only |
 | [QT] | Qt 6 / PySide6 documentation |
 | [OOCD] | OpenOCD user guide, `stm32f2x` flash driver (covers STM32F7) |

@@ -317,4 +317,4 @@ class CommandsMixin:
         reveal_path(self.store.path.parent)
 
     def _report_issue(self) -> None:
-        open_url("https://github.com/soccentric-stm32/soccentric-stm32-validation-gui/issues")
+        open_url("https://github.com/soccentric-stm32/validation-gui/issues")
