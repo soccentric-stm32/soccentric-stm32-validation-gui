@@ -100,50 +100,11 @@ def request_attention(widget: QWidget) -> None:
 
 
 def _windows_taskbar_progress(widget: QWidget, value: int, maximum: int) -> bool:
-    try:
-        import ctypes
-        from ctypes import POINTER, Structure, c_int, c_ulonglong, c_void_p, wintypes
-
-        class _GUID(Structure):
-            _fields_ = [
-                ("Data1", wintypes.DWORD),
-                ("Data2", wintypes.WORD),
-                ("Data3", wintypes.WORD),
-                ("Data4", wintypes.BYTE * 8),
-            ]
-
-        clsid = _GUID(
-            0x56FDF344,
-            0xFD6D,
-            0x11D0,
-            (wintypes.BYTE * 8)(0x95, 0x8A, 0x00, 0x60, 0x97, 0xC9, 0xA0, 0x90),
-        )
-        iid = _GUID(
-            0xEA1AFB91,
-            0x9E28,
-            0x4B86,
-            (wintypes.BYTE * 8)(0x90, 0xE9, 0x9E, 0x9F, 0x8A, 0x5E, 0xEA, 0x84),
-        )
-        global _TASKBAR
-        if "_TASKBAR" not in globals():
-            ctypes.windll.ole32.CoInitialize(None)
-            pointer = c_void_p()
-            ctypes.windll.ole32.CoCreateInstance(
-                ctypes.byref(clsid), None, 1, ctypes.byref(iid), ctypes.byref(pointer)
-            )
-            _TASKBAR = pointer
-        hwnd = int(widget.winId())
-        vtable = ctypes.cast(_TASKBAR, POINTER(POINTER(c_void_p))).contents
-        set_state = ctypes.WINFUNCTYPE(ctypes.HRESULT, c_void_p, c_int)(vtable[9])
-        if maximum <= 0:
-            set_state(hwnd, 0)  # TBPF_NOPROGRESS
-        else:
-            set_state(hwnd, 2)  # TBPF_NORMAL
-            set_value = ctypes.WINFUNCTYPE(ctypes.HRESULT, c_void_p, c_ulonglong, c_ulonglong)(vtable[8])
-            set_value(hwnd, int(value), int(maximum))
-        return True
-    except Exception:
-        return False
+    # The raw ITaskbarList3 vtable call that used to live here used the wrong
+    # indices and never passed the COM `this` pointer, which is undefined
+    # behaviour on every connect/disconnect.  Until a Qt WinExtras taskbar
+    # button is available, use the window-title fallback below.
+    return False
 
 
 def set_progress(widget: QWidget, value: int, maximum: int) -> None:
@@ -161,10 +122,13 @@ def set_progress(widget: QWidget, value: int, maximum: int) -> None:
             pass
     if is_windows() and _windows_taskbar_progress(widget, value, maximum):
         return
+    title = widget.windowTitle()
+    if title.startswith("[") and "] " in title:
+        title = title.split("] ", 1)[1]
     if maximum > 0:
-        widget.setWindowTitle(f"[{int(100 * value / maximum)}%] HWVAL Studio")
+        widget.setWindowTitle(f"[{int(100 * value / maximum)}%] {title}")
     else:
-        widget.setWindowTitle("HWVAL Studio")
+        widget.setWindowTitle(title)
 
 
 def reveal_path(path: str | Path) -> bool:
