@@ -369,6 +369,11 @@ class MainWindow(ActionsMixin, NavigationMixin, HandlersMixin, CommandsMixin, QM
             self.controller.disconnect_device()
         except Exception:
             pass
+        # M20: do not destroy the controller/store while a worker is running.
+        try:
+            self.controller.wait_for_tasks()
+        except Exception:
+            pass
         try:
             self.store.close()
         except Exception:

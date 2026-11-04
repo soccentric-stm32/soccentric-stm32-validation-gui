@@ -268,6 +268,22 @@ class StudioController(QObject):
             self.connection_state.emit("disconnected")
             self.disconnected.emit("serial transport closed")
 
+    def wait_for_tasks(self, timeout_ms: int = 10000) -> None:
+        """Let running worker tasks finish so Qt does not destroy a thread.
+
+        Call after disconnect_device(), which asks the run/update loops to
+        stop.  terminate() is a last resort: it is only reached if a task
+        ignored the 10 s deadline, and it avoids Qt aborting the process.
+        """
+        deadline = time.monotonic() + (timeout_ms / 1000.0)
+        for task in list(self._tasks):
+            remaining = max(0.0, deadline - time.monotonic())
+            if not task.wait(int(remaining * 1000)):
+                self.log.emit("WARN", "a worker task did not stop; terminating it")
+                task.terminate()
+                task.wait(1000)
+        self._tasks.clear()
+
     def disconnect_device(self) -> None:
         if self._run_active:
             self.abort_run()
