@@ -51,6 +51,7 @@ from hwval_studio.protocol.generated.hwlink import (
     Nak,
     OperatorAnswer,
     OperatorPrompt,
+    OperatorPromptDone,
     Ping,
     Pong,
     Progress,
@@ -269,6 +270,7 @@ def body_table(message: Message.Message) -> Any:
         Body.RunStarted: RunStarted.RunStarted,
         Body.TestStarted: TestStarted.TestStarted,
         Body.OperatorPrompt: OperatorPrompt.OperatorPrompt,
+        Body.OperatorPromptDone: OperatorPromptDone.OperatorPromptDone,
         Body.RunFinished: RunFinished.RunFinished,
     }
     cls = classes.get(body_type)
@@ -1296,6 +1298,13 @@ def parse_run_started(t: Any) -> dict[str, Any]:
 
 def parse_test_started(t: Any) -> dict[str, Any]:
     return {"id": text(t.Id()), "index": int(t.Index()), "total": int(t.Total())}
+
+
+def parse_operator_prompt_done(t: Any) -> dict[str, Any]:
+    return {
+        "prompt_id": int(t.PromptId()),
+        "answer": text(t.Answer()),
+    }
 
 
 def parse_operator_prompt(t: Any) -> dict[str, Any]:

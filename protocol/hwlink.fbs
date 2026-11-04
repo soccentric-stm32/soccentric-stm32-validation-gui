@@ -545,6 +545,11 @@ table RunFinished {
     resumed:bool;
 }
 
+table OperatorPromptDone {
+    prompt_id:uint32;
+    answer:string;
+}
+
 // The union order is part of the wire format. Append new members only.
 union Body {
     Hello,
@@ -601,7 +606,8 @@ union Body {
     RunStarted,
     TestStarted,
     OperatorPrompt,
-    RunFinished
+    RunFinished,
+    OperatorPromptDone
 }
 
 table Message {

@@ -122,6 +122,11 @@ class HandlersMixin:
             request_attention(self)
         dialog.open()
 
+    def _run_prompt_done(self, done: dict[str, Any]) -> None:
+        """TST-032: HWVAL answered the prompt itself (B1 or timeout)."""
+        if self._prompt_dialog is not None:
+            self._prompt_dialog.close_on_done(done)
+
     def _run_finished(self, payload: dict[str, Any]) -> None:
         self._run_active = False
         self._last_results = payload.get("results", [])

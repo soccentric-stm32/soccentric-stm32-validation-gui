@@ -59,3 +59,4 @@ class Body(object):
     TestStarted = 53
     OperatorPrompt = 54
     RunFinished = 55
+    OperatorPromptDone = 56

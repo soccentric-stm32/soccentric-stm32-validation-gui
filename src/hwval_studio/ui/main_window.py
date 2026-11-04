@@ -291,6 +291,7 @@ class MainWindow(ActionsMixin, NavigationMixin, HandlersMixin, CommandsMixin, QM
         c.test_started.connect(self._test_started)
         c.test_result.connect(self._test_result)
         c.run_prompt.connect(self._run_prompt)
+        c.run_prompt_done.connect(self._run_prompt_done)
         c.run_finished.connect(self._run_finished)
         c.run_failed.connect(self._run_failed)
         c.update_state.connect(self.update_page.set_state)

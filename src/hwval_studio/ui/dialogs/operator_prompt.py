@@ -122,6 +122,14 @@ class OperatorPromptDialog(QDialog):
             self.answered.emit(self.prompt_id, "yes")
             self.accept()
 
+    def close_on_done(self, event: dict[str, Any]) -> None:
+        """TST-032: close when HWVAL reports the prompt is done."""
+        if self._answered or int(event.get("prompt_id", -1)) != self.prompt_id:
+            return
+        self._answered = True
+        self.timer.stop()
+        self.accept()
+
     def keyPressEvent(self, event: Any) -> None:
         if event.key() in (Qt.Key.Key_Escape, Qt.Key.Key_Return, Qt.Key.Key_Enter):
             return

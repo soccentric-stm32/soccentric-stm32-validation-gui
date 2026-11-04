@@ -214,6 +214,8 @@ class RunController:
             elif body_type == Body.OperatorPrompt:
                 data = codec.parse_operator_prompt(table)
                 self._emit(body_type, data)
+            elif body_type == Body.OperatorPromptDone:
+                self._emit(body_type, codec.parse_operator_prompt_done(table))
             elif body_type == Body.RunFinished:
                 self.summary = codec.parse_run_finished(table)
                 self.finished = True

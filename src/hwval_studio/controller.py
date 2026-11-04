@@ -77,6 +77,7 @@ class StudioController(QObject):
     test_started = Signal(object)
     test_result = Signal(object)
     run_prompt = Signal(object)
+    run_prompt_done = Signal(object)
     run_finished = Signal(object)
     run_failed = Signal(str)
     update_state = Signal(str)
@@ -522,6 +523,8 @@ class StudioController(QObject):
                 self.test_result.emit(data)
             elif body_type == Body.OperatorPrompt:
                 self.run_prompt.emit(data)
+            elif body_type == Body.OperatorPromptDone:
+                self.run_prompt_done.emit(data)
             elif body_type == Body.ButtonEvent:
                 self.button_event.emit(data)
             elif body_type == Body.Progress:
