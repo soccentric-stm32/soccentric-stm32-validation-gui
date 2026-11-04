@@ -118,7 +118,7 @@ class StudioController(QObject):
         self._update_active = False
         self._swd_active = False
         self._ping_active = False
-        self._ping_misses_no = 0
+        self._ping_misses = 0
         self._disconnect_emitted = False
 
     # -- helpers -------------------------------------------------------
