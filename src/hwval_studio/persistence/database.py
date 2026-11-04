@@ -205,6 +205,9 @@ class HistoryStore:
     def add_result(self, run_id: int, result: dict[str, Any]) -> None:
         measured = result.get("measured") or {}
         limits = result.get("limits") or {}
+        # HIS-009: do not store the 0.0 defaults of an invalid measurement.
+        measured_ok = bool(measured.get("valid", True))
+        limits_ok = bool(limits.get("valid", True))
         with self._lock:
             self.connection.execute(
                 "INSERT INTO results(run_id, test_id, group_code, iteration, result, duration_ms, "
@@ -218,13 +221,13 @@ class HistoryStore:
                     str(result.get("result_name") or result.get("result", "N/A")),
                     int(result.get("duration_ms", 0)),
                     str(result.get("reason", "")),
-                    measured.get("value"),
-                    measured.get("unit"),
-                    measured.get("text"),
-                    limits.get("min"),
-                    limits.get("max"),
-                    limits.get("unit"),
-                    limits.get("text"),
+                    measured.get("value") if measured_ok else None,
+                    measured.get("unit") if measured_ok else None,
+                    measured.get("text") if measured_ok else None,
+                    limits.get("min") if limits_ok else None,
+                    limits.get("max") if limits_ok else None,
+                    limits.get("unit") if limits_ok else None,
+                    limits.get("text") if limits_ok else None,
                     str(result.get("reqs", "")),
                     utc_now(),
                 ),
@@ -431,14 +434,14 @@ class HistoryStore:
             entry = dict(run)
             entry["results"] = self.get_results(int(run["id"]))
             payload["runs"].append(entry)
-        p.write_text(json.dumps(payload, indent=2) + "\n")
+        p.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         return p
 
     def export_runs_csv(self, path: str | Path) -> Path:
         import csv
 
         p = Path(path)
-        with p.open("w", newline="") as handle:
+        with p.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.writer(handle)
             writer.writerow(
                 [

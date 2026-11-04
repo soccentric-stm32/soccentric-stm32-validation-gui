@@ -195,8 +195,8 @@ def export_run(store: HistoryStore, run_id: int, directory: str | Path) -> tuple
     json_path = out / f"{stem}.json"
     md_path = out / f"{stem}.md"
     payload = run_payload(run, results)
-    json_path.write_text(json.dumps(payload, indent=2) + "\n")
-    md_path.write_text(markdown_report(run, results))
+    json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    md_path.write_text(markdown_report(run, results), encoding="utf-8")
     return json_path, md_path
 
 
@@ -205,7 +205,7 @@ def export_run_json(store: HistoryStore, run_id: int, path: str | Path) -> Path:
     if run is None:
         raise ValueError(f"run {run_id} not found")
     p = Path(path)
-    p.write_text(json.dumps(run_payload(run, store.get_results(run_id)), indent=2) + "\n")
+    p.write_text(json.dumps(run_payload(run, store.get_results(run_id)), indent=2) + "\n", encoding="utf-8")
     return p
 
 
@@ -214,13 +214,13 @@ def export_run_markdown(store: HistoryStore, run_id: int, path: str | Path) -> P
     if run is None:
         raise ValueError(f"run {run_id} not found")
     p = Path(path)
-    p.write_text(markdown_report(run, store.get_results(run_id)))
+    p.write_text(markdown_report(run, store.get_results(run_id)), encoding="utf-8")
     return p
 
 
 def import_hwtest_json(store: HistoryStore, path: str | Path) -> int:
     """Import a JSON report produced by scripts/hwtest.py (REP-004)."""
-    raw = json.loads(Path(path).read_text())
+    raw = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(raw, dict) or "results" not in raw:
         raise ValueError("not a hwtest.py JSON report")
     meta = raw.get("meta") or {}
@@ -334,7 +334,7 @@ def write_cli_reports(meta: dict[str, Any], results: list[dict[str, Any]], out_d
     summary = {"PASS": 0, "FAIL": 0, "SKIP": 0, "N/A": 0}
     for row in rows:
         summary[row["result"]] = summary.get(row["result"], 0) + 1
-    json_path.write_text(json.dumps({"meta": meta, "summary": summary, "results": rows}, indent=2) + "\n")
+    json_path.write_text(json.dumps({"meta": meta, "summary": summary, "results": rows}, indent=2) + "\n", encoding="utf-8")
     lines = [
         "# HWVAL test report",
         "",
@@ -357,5 +357,5 @@ def write_cli_reports(meta: dict[str, Any], results: list[dict[str, Any]], out_d
                 row["id"], row["result"], row["duration_ms"], row["measured"], row["limits"], row["reason"]
             )
         )
-    md_path.write_text("\n".join(lines) + "\n")
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return json_path, md_path
