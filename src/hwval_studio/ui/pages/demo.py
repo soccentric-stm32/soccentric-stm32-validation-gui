@@ -109,6 +109,7 @@ class DemoPage(ScrollPage):
                 ("Slot", "—"),
                 ("Trial", "—"),
                 ("Health", "—"),
+                ("Button", "—"),
             ]
         )
         self.add_card(self.stats)
@@ -201,6 +202,7 @@ class DemoPage(ScrollPage):
             self.stats.set_value("Slot", "—")
             self.stats.set_value("Trial", "—")
             self.stats.set_value("Health", "—")
+            self.stats.set_value("Button", "—")
             self.status_grid.set_items({})
             return
         self.stats.set_value("Uptime", self._uptime(status.get("uptime_ms", 0)))
@@ -273,7 +275,7 @@ class DemoPage(ScrollPage):
 
     def button_event(self, event: dict[str, Any]) -> None:
         self.stats.set_value(
-            "Trial",
+            "Button",
             f"B1 {event.get('press_name', '')}",
             COLORS["accent"],
         )
