@@ -565,11 +565,12 @@ class HandlersMixin:
         self.controller.restore_bench(path if path else None)
 
     def _start_update(self, image: object, activate: bool) -> None:
+        if not self.controller.start_update(image, activate=activate):
+            return
         self._update_active = True
         self.update_page.set_busy(True)
         self._update_actions()
         self.activity.set_busy("Updating firmware…", "Preparing upload")
-        self.controller.start_update(image, activate=activate)
 
     # -- operator mode -------------------------------------------------
     def _toggle_operator_mode(self, checked: bool) -> None:

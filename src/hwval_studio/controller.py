@@ -749,30 +749,30 @@ class StudioController(QObject):
         self._spawn(task, lambda _: self.banner.emit("Reset requested"), self.error.emit)
 
     # -- BOOT / firmware update ---------------------------------------
-    def start_update(self, image: FirmwareImage | str | Path, *, activate: bool = True) -> None:
+    def start_update(self, image: FirmwareImage | str | Path, *, activate: bool = True) -> bool:
         if self._run_active:
             self.error.emit("Abort the active run before updating firmware.")
-            return
+            return False
         if self._swd_active:
             self.error.emit("An SWD operation is active.")
-            return
+            return False
         if self._update_active:
             self.error.emit("An update is already active.")
-            return
+            return False
         if self.client is None:
             self.error.emit("Connect to a device before updating firmware.")
-            return
+            return False
         if self.role == Role.HWVAL:
             self.error.emit(
                 "HWVAL is running in the bench configuration (single-bank). "
                 "UART update needs the product configuration; use Tools > Provision Product Configuration."
             )
-            return
+            return False
         try:
             parsed = image if isinstance(image, FirmwareImage) else parse_image(image)
         except ImageError as exc:
             self.error.emit(str(exc))
-            return
+            return False
         warnings = list(parsed.warnings)
         if self.boot_info:
             active = next(
@@ -901,6 +901,7 @@ class StudioController(QObject):
             self.update_failed.emit(message)
 
         self._spawn(task, ok, fail)
+        return True
 
     def cancel_update(self) -> None:
         self._update_cancel.set()
@@ -1071,10 +1072,10 @@ class StudioController(QObject):
 
     def _begin_swd(self, operation: str) -> bool:
         if self._swd_active:
-            self.error.emit("An SWD operation is already running.")
+            self.swd_failed.emit("An SWD operation is already running.")
             return False
         if self._run_active:
-            self.error.emit("Abort the active run before using SWD.")
+            self.swd_failed.emit("Abort the active run before using SWD.")
             return False
         self._swd_active = True
         self.operation_busy.emit(True)
