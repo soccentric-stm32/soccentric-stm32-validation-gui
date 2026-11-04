@@ -1056,8 +1056,10 @@ class StudioController(QObject):
             raise OpenOcdError("OpenOCD was not found.\n\n" + install_hint())
         try:
             version = openocd_version(path)
-        except OpenOcdError:
-            version = "0.12"
+        except OpenOcdError as exc:
+            raise OpenOcdError(
+                f"cannot determine the OpenOCD version: {exc}\n\n" + install_hint()
+            ) from exc
         if not version_supported(version):
             raise OpenOcdError(f"OpenOCD {version} is too old (>= 0.12 required).\n\n" + install_hint())
         return path

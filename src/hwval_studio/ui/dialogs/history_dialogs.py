@@ -163,9 +163,20 @@ class CompareDialog(QDialog):
         layout.addWidget(buttons)
 
 
+_SHARED_PRINTER: QPrinter | None = None
+
+
+def shared_printer() -> QPrinter:
+    """One printer object so Page Setup applies to the next print."""
+    global _SHARED_PRINTER
+    if _SHARED_PRINTER is None:
+        _SHARED_PRINTER = QPrinter(QPrinter.PrinterMode.HighResolution)
+        _SHARED_PRINTER.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+    return _SHARED_PRINTER
+
+
 def print_report(parent: QWidget, run: dict[str, Any], results: list[dict[str, Any]]) -> None:
-    printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-    printer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+    printer = shared_printer()
     dialog = QPrintDialog(printer, parent)
     dialog.setWindowTitle("Print report")
     if dialog.exec() != QPrintDialog.DialogCode.Accepted:

@@ -54,10 +54,11 @@ class CommandsMixin:
         self.reports_page.import_results()
 
     def _page_setup(self) -> None:
-        from PySide6.QtPrintSupport import QPageSetupDialog, QPrinter
+        from PySide6.QtPrintSupport import QPageSetupDialog
 
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-        dialog = QPageSetupDialog(printer, self)
+        from hwval_studio.ui.dialogs.history_dialogs import shared_printer
+
+        dialog = QPageSetupDialog(shared_printer(), self)
         if dialog.exec() == QPageSetupDialog.DialogCode.Accepted:
             self.show_banner("Page setup applied to the next printed report")
 
