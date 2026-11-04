@@ -354,14 +354,27 @@ class StudioController(QObject):
         return status
 
     def _reopen_serial(self) -> dict[str, Any]:
-        """Reopen the VCP and identify the device; caller runs this off the UI."""
+        """Reopen the VCP, identify the device and refresh its role data."""
         self._restart_worker()
         if self.client is None and self.worker is not None:
             self.client = Client(self.worker, log_handler=self._log)
         if self.client is None:
             raise DeviceError("transport unavailable")
-        self.client.connect()
-        return {"identity": self.client.identity, "client": self.client}
+        client = self.client
+        identity = client.connect()
+        result: dict[str, Any] = {"identity": identity, "client": client}
+        # The role (and therefore its data) can change after an SWD
+        # operation; do not leave the previous catalogue/BootInfo/Status
+        # on screen.
+        if identity.role == Role.HWVAL:
+            result["device_info"] = client.get_device_info()
+            result["groups"], result["tests"] = client.load_catalogue()
+            result["harness"] = client.load_harness()
+        elif identity.role == Role.BOOTLOADER:
+            result["boot_info"] = client.get_boot_info()
+        elif identity.role == Role.DEMO:
+            result["demo_status"] = client.get_status()
+        return result
 
     def enter_text_mode(self) -> None:
         if self.client is None:
