@@ -328,6 +328,15 @@ class StudioController(QObject):
                 time.sleep(0.25)
         raise DeviceError(f"could not reconnect as {expected_role}: {last}")
 
+    def _reopen_serial(self) -> dict[str, Any]:
+        """Reopen the VCP and identify the device; caller runs this off the UI."""
+        self._restart_worker()
+        if self.client is None and self.worker is not None:
+            self.client = Client(self.worker, log_handler=self._log)
+        if self.client is None:
+            raise DeviceError("transport unavailable")
+        self.client.connect()
+        return {"identity": self.client.identity, "client": self.client}
 
     def enter_text_mode(self) -> None:
         if self.client is None:
@@ -872,15 +881,17 @@ class StudioController(QObject):
             if self.client is None:
                 raise DeviceError("not connected")
             self.client.activate()
-            return True
-
-        def ok(_result: bool) -> None:
-            self.banner.emit("Activate sent; the device is resetting")
+            # ARC-002: the wait and the reconnect belong to the worker, not
+            # to the UI thread.
             time.sleep(0.5)
             try:
                 self._reconnect(Role.DEMO, attempts=20)
             except Exception as exc:
                 self.log.emit("WARN", f"could not reconnect after activate: {exc}")
+            return True
+
+        def ok(_result: bool) -> None:
+            self.banner.emit("Activate sent; the device is resetting")
 
         self._spawn(task, ok, self.error.emit)
 
@@ -1025,6 +1036,8 @@ class StudioController(QObject):
             self._close_worker()
             self.client = None
 
+        reopened: dict[str, Any] = {}
+
         def task(worker_task: TaskThread) -> dict[str, Any]:
             executable = self.openocd_executable()
             runner = OpenOcdRunner(executable=executable, log=self.swd_output.emit)
@@ -1032,9 +1045,18 @@ class StudioController(QObject):
                 return fn(runner, worker_task)
             finally:
                 runner.stop()
+                # ARC-002: reopening the VCP can wait for the ST-LINK and
+                # reconnect for seconds, so it runs here, not in a UI slot.
+                if serial_was_open:
+                    try:
+                        reopened.update(self._reopen_serial())
+                    except Exception as exc:
+                        self.log.emit("WARN", f"could not reopen serial link: {exc}")
 
         def ok(result: dict[str, Any]) -> None:
             self._finish_swd()
+            if reopened:
+                self._on_connected(reopened)
             self.swd_finished.emit(operation, result)
             self.banner.emit(f"{operation} completed")
             if record:
@@ -1051,18 +1073,11 @@ class StudioController(QObject):
                     )
                 except Exception:
                     pass
-            if serial_was_open:
-                try:
-                    self._restart_worker()
-                    if self.client is None and self.worker is not None:
-                        self.client = Client(self.worker, log_handler=self._log)
-                    self.client.connect()
-                    self._on_connected({"identity": self.client.identity, "client": self.client})
-                except Exception as exc:
-                    self.log.emit("WARN", f"could not reopen serial link: {exc}")
 
         def fail(message: str) -> None:
             self._finish_swd()
+            if reopened:
+                self._on_connected(reopened)
             self.swd_failed.emit(message)
             self.log.emit("ERROR", f"{operation} failed: {message}")
             if record:
@@ -1077,15 +1092,6 @@ class StudioController(QObject):
                         image_version=image_version,
                         detail=message,
                     )
-                except Exception:
-                    pass
-            if serial_was_open:
-                try:
-                    self._restart_worker()
-                    if self.client is None and self.worker is not None:
-                        self.client = Client(self.worker, log_handler=self._log)
-                    self.client.connect()
-                    self._on_connected({"identity": self.client.identity, "client": self.client})
                 except Exception:
                     pass
 
