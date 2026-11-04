@@ -33,7 +33,7 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
 
 
 def install_exception_hook(logger: logging.Logger) -> None:
-    def handle(exc_type: type.BaseException, exc_value: BaseException, tb: Any) -> None:
+    def handle(exc_type: type[BaseException], exc_value: BaseException, tb: Any) -> None:
         if issubclass(exc_type, KeyboardInterrupt):
             sys.__excepthook__(exc_type, exc_value, tb)
             return

@@ -71,6 +71,7 @@ class LogConsole(QWidget):
 
         self.view = QTextEdit()
         self.view.setReadOnly(True)
+        self.view.document().setMaximumBlockCount(5000)
         self.view.setObjectName("LogView")
         self.view.setFont(QFont("JetBrains Mono", 9))
         self.view.setStyleSheet(

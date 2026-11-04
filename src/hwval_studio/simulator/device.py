@@ -33,7 +33,7 @@ from hwval_studio.simulator.catalogue_data import GROUPS, TESTS
 
 UID_HEX = "002A004B3337500D37323336"
 UID_VALUE = int(UID_HEX[:16], 16)
-DEV_ID = 0x449
+DEV_ID = 0x451
 REV_ID = 0x1003
 
 CATEGORY_MAP = {
