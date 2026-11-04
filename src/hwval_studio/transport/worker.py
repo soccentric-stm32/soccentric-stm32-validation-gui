@@ -81,7 +81,7 @@ class SerialWorker(QThread):
                 import serial
 
                 self._serial = serial.Serial(
-                    self.port, self.baudrate, timeout=0.05, write_timeout=3
+                    self.port, self.baudrate, timeout=0.02, write_timeout=3
                 )
         except Exception as exc:
             self._open_error = str(exc)
@@ -174,6 +174,13 @@ class SerialWorker(QThread):
         if self._stop.is_set():
             raise OSError("transport closed")
         self._tx.put(data)
+        # Wake the reader that is blocked in serial.read() so the queued
+        # frame goes out now instead of after the read timeout.
+        if self._serial is not None:
+            try:
+                self._serial.cancel_read()
+            except Exception:
+                pass
 
     def read_frame(self, timeout: float) -> bytes | None:
         try:
