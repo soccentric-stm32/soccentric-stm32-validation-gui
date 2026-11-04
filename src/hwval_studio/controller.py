@@ -209,7 +209,7 @@ class StudioController(QObject):
         if "boot_info" in result:
             self.boot_info = result.get("boot_info")
         if "demo_status" in result:
-            self.demo_status = result.get("demo_status")
+            self.demo_status = self._fill_demo_identity(result.get("demo_status") or {})
         try:
             self.store.record_device(identity.uid_hex, identity.dev_id, identity.rev_id)
             if self.groups:
@@ -328,6 +328,20 @@ class StudioController(QObject):
                 last = exc
                 time.sleep(0.25)
         raise DeviceError(f"could not reconnect as {expected_role}: {last}")
+
+    def _fill_demo_identity(self, status: dict[str, Any]) -> dict[str, Any]:
+        """Status omits the identity strings; HelloReply already has them."""
+        identity = self.identity
+        if identity is not None:
+            for key, value in (
+                ("firmware_name", identity.firmware_name),
+                ("version", identity.version),
+                ("commit", identity.commit),
+                ("build_time", identity.build_time),
+            ):
+                if not status.get(key):
+                    status[key] = value
+        return status
 
     def _reopen_serial(self) -> dict[str, Any]:
         """Reopen the VCP and identify the device; caller runs this off the UI."""
@@ -932,6 +946,7 @@ class StudioController(QObject):
 
         def ok(status: dict[str, Any]) -> None:
             self._demo_poll_active = False
+            status = self._fill_demo_identity(status)
             self.demo_status = status
             self.demo_status_ready.emit(status)
             if self.client is not None:
