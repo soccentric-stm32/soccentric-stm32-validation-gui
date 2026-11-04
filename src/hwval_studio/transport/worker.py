@@ -166,7 +166,15 @@ class SerialWorker(QThread):
     def close(self) -> None:
         self._stop.set()
         self._tx.put(None)
-        if not self.wait(4000):
+        # Wake a blocked read so the loop can observe _stop without waiting
+        # for its timeout; the caller (often the UI) should not block for
+        # seconds. terminate() remains a last resort only.
+        if self._serial is not None:
+            try:
+                self._serial.cancel_read()
+            except Exception:
+                pass
+        if not self.wait(1500):
             self.terminate()
             self.wait(1000)
 
