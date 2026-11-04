@@ -1,7 +1,13 @@
 // Jenkinsfile - multi-stage CI for HWVAL Studio (validation GUI).
 //
 //   Checkout -> Setup -> Lint -> Type check -> Protocol schema -> CLI smoke
-//            -> Tests -> Package -> Publish
+//            -> Tests -> Package -> Release (tags) -> Archive
+//
+// Package builds dist/<repo>-<version>.tar.gz (outputs, manifest.json,
+// SHA256SUMS) on every run.  Release runs only for a tag v<version> and
+// publishes dist/ as a GitHub release with the Jenkins secret-text credential
+// github-release-token.  To release: bump the version, push, then push the
+// tag (git tag v0.2.0 && git push origin v0.2.0).
 //
 // Pure Python; the agent needs python3 (>= 3.11), git and network access for
 // PyPI. The GUI is never started for real: CLI runs use the in-process device
@@ -19,7 +25,7 @@ pipeline {
     }
 
     parameters {
-        booleanParam(name: 'PACKAGE', defaultValue: false, description: 'Build the Linux package (PyInstaller + .deb)')
+        booleanParam(name: 'PACKAGE', defaultValue: false, description: 'Build the Linux package (PyInstaller + .deb); always done for a release tag')
     }
 
     environment {
@@ -114,21 +120,39 @@ pipeline {
         }
 
         stage('Package') {
-            when { expression { return params.PACKAGE } }
             steps {
-                sh 'PATH="${PWD}/${VENV}/bin:${PATH}" make package'
-                archiveArtifacts artifacts: 'dist/*', allowEmptyArchive: true
+                sh '''
+                    rm -rf dist
+                    "${VENV}/bin/python" -m pip wheel --no-deps --wheel-dir dist .
+                    "${VENV}/bin/python" -m pip freeze > build-requirements.txt
+                '''
+                script {
+                    // The desktop bundle is slow; build it on request or for a release.
+                    if (params.PACKAGE || env.TAG_NAME) {
+                        sh 'PATH="${PWD}/${VENV}/bin:${PATH}" make package'
+                    }
+                }
+                sh '''
+                    python3 ci/package.py --name validation-gui --version "$(ci/version.sh)" \\
+                        requirements.lock build-requirements.txt README.md LICENSE
+                '''
             }
         }
 
-        stage('Publish') {
+        stage('Release') {
+            // Only for a tag build (Multibranch job with tag discovery).  The
+            // tag must be v<version>; ci/github_release.py checks it.
+            when { buildingTag() }
             steps {
-                sh '''
-                    "${VENV}/bin/python" -m pip freeze > build-requirements.txt
-                    sha256sum requirements.lock build-requirements.txt > SHA256SUMS
-                    cat SHA256SUMS
-                '''
-                archiveArtifacts artifacts: 'build-requirements.txt,SHA256SUMS', fingerprint: true
+                withCredentials([string(credentialsId: 'github-release-token', variable: 'GITHUB_TOKEN')]) {
+                    sh 'python3 ci/github_release.py --tag "${TAG_NAME}" --version "$(ci/version.sh)" dist/*'
+                }
+            }
+        }
+
+        stage('Archive') {
+            steps {
+                archiveArtifacts artifacts: 'dist/*', fingerprint: true
             }
         }
     }
