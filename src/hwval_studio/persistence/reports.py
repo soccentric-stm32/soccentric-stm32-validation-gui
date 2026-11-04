@@ -9,6 +9,7 @@ from typing import Any
 
 from hwval_studio import __version__
 from hwval_studio.persistence.database import HistoryStore
+from hwval_studio.protocol.codec import verdict_text
 
 SUMMARY_KEYS = {"PASS": "PASS", "FAIL": "FAIL", "SKIP": "SKIP", "N/A": "N/A"}
 
@@ -25,10 +26,9 @@ def report_stem(uid: str, started_at: str) -> str:
 def summarise(results: list[dict[str, Any]]) -> dict[str, int]:
     summary = {"PASS": 0, "FAIL": 0, "SKIP": 0, "N/A": 0}
     for result in results:
-        value = str(result.get("result") or result.get("result_name") or "N/A")
-        if value == "NA":
-            value = "N/A"
-        summary[value] = summary.get(value, 0) + 1
+        value = verdict_text(result)
+        if value in summary:
+            summary[value] += 1
     return summary
 
 

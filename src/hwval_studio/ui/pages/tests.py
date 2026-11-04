@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from hwval_studio.core.client import Selection, TestCase, TestGroup
+from hwval_studio.protocol.codec import verdict_text
 from hwval_studio.ui.pages.base import Page, SectionCard, StatRow
 from hwval_studio.ui.theme import COLORS, icon
 from hwval_studio.ui.widgets import KeyValueGrid, ResultTable, ToggleSwitch
@@ -263,7 +264,7 @@ class TestsPage(Page):
         total = 0
         for row in self.table.source_model.rows:
             total += 1
-            value = str(row.get("result") or "NOT RUN").upper().replace("NA", "N/A")
+            value = verdict_text(row)
             counts[value] = counts.get(value, 0) + 1
             group = str(row.get("group") or "")
             if group:
@@ -307,7 +308,7 @@ class TestsPage(Page):
         self.details_grid.set_items(
             {
                 "Test": f"{row.get('test_id') or row.get('id', '')} — {row.get('title', '')}",
-                "Result": str(row.get("result", "NOT RUN")),
+                "Result": verdict_text(row),
                 "Level": row.get("level") or (test.level_name if test else ""),
                 "Flags": ", ".join(
                     flag
@@ -421,7 +422,7 @@ class TestsPage(Page):
         self.run_requested.emit(selection)
 
     def run_failed_again(self, results: list[dict[str, Any]]) -> None:
-        failed = [str(result.get("test_id") or result.get("id")) for result in results if str(result.get("result")) == "FAIL"]
+        failed = [str(result.get("test_id") or result.get("id")) for result in results if verdict_text(result) == "FAIL"]
         if not failed:
             QMessageBox.information(self, "Run Failed Again", "There are no failed tests in the last run.")
             return
@@ -473,7 +474,7 @@ class TestsPage(Page):
         measured_text = measured.get("text", "") if isinstance(measured, dict) else str(measured)
         limits_text = limits.get("text", "") if isinstance(limits, dict) else str(limits)
         return (
-            f"{row.get('test_id') or row.get('id')} {row.get('result')} "
+            f"{row.get('test_id') or row.get('id')} {verdict_text(row)} "
             f"({row.get('duration_ms')} ms) measured={measured_text} limits={limits_text} "
             f"reason={row.get('reason', '')}"
         )

@@ -100,6 +100,25 @@ VERDICT_NAMES = {
     TestVerdict.SKIP: "SKIP",
     TestVerdict.NA: "N/A",
 }
+
+
+def verdict_text(row: dict[str, Any]) -> str:
+    """Return the verdict of a result row as text.
+
+    Device rows carry the enum in ``result`` (an int, where PASS is 0 and
+    therefore falsy) and the decoded name in ``result_name``; placeholders
+    and history rows use strings such as ``NOT RUN``. Prefer the name so a
+    PASS is not mistaken for "not run" and a FAIL is not shown as "1".
+    """
+    name = row.get("result_name")
+    if not name:
+        raw = row.get("result")
+        if isinstance(raw, int) and not isinstance(raw, bool):
+            name = VERDICT_NAMES.get(raw)
+        elif raw is not None:
+            name = str(raw)
+    text = str(name or "NOT RUN").strip().upper()
+    return "N/A" if text == "NA" else text
 LEVEL_NAMES = {TestLevel.S: "S", TestLevel.L: "L", TestLevel.E: "E"}
 PROMPT_KIND_NAMES = {
     PromptKind.YES_NO: "YES_NO",

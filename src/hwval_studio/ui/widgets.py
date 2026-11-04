@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from hwval_studio.protocol.codec import verdict_text
 from hwval_studio.ui.theme import COLORS, icon, state_icon
 
 
@@ -301,9 +302,7 @@ class ResultTableModel(QAbstractTableModel):
         column = index.column()
         meta = self.catalogue.get(str(row.get("test_id") or row.get("id")), {})
         title = row.get("title") or meta.get("title", "")
-        result = str(row.get("result") or row.get("result_name") or "NOT RUN")
-        if result == "NA":
-            result = "N/A"
+        result = verdict_text(row)
         if role == Qt.ItemDataRole.DisplayRole:
             return [
                 "",
@@ -497,7 +496,7 @@ class SortProxy(QSortFilterProxyModel):
         if self._result_filter:
             row_data = model.row_at(source_row) if hasattr(model, "row_at") else None
             if row_data is not None:
-                value = str(row_data.get("result") or "NOT RUN").upper().replace("NA", "N/A")
+                value = verdict_text(row_data)
                 if self._result_filter == "NOT RUN" and value not in {"NOT RUN", "RUNNING"}:
                     return False
                 if self._result_filter != "NOT RUN" and value != self._result_filter:
