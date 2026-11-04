@@ -83,7 +83,7 @@ def utc_now() -> str:
 
 
 class HistoryStore:
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, *, recover_running: bool = True) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
@@ -93,7 +93,10 @@ class HistoryStore:
             self.connection.execute("PRAGMA journal_mode=WAL")
             self.connection.execute("PRAGMA foreign_keys=ON")
             self._migrate()
-            self.mark_incomplete_runs()
+            if recover_running:
+                # Only the first opener recovers runs; a second window in
+                # the same process must not mark the live run INCOMPLETE.
+                self.mark_incomplete_runs()
 
     def close(self) -> None:
         with self._lock:

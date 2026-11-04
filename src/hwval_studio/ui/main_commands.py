@@ -102,7 +102,7 @@ class CommandsMixin:
     def _new_window(self) -> None:
         from hwval_studio.ui.main_window import MainWindow
 
-        window = MainWindow(self.preferences, HistoryStore(self.store.path), auto_connect=False)
+        window = MainWindow(self.preferences, HistoryStore(self.store.path, recover_running=False), auto_connect=False)
         window.show()
         self._windows.append(window)
         self._refresh_window_menu()
