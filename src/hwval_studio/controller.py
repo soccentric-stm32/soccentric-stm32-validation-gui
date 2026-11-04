@@ -201,6 +201,16 @@ class StudioController(QObject):
         self.demo_service = DemoService(client)
         if "device_info" in result:
             self.device_info = result.get("device_info")
+            # DeviceInfo carries the full 96-bit UID as a hex string; use it
+            # for device history and report names instead of the 64 bits in
+            # HelloReply.uid.
+            full_uid = str(self.device_info.get("uid") or "")
+            if full_uid:
+                try:
+                    identity.uid = int(full_uid, 16)
+                    identity.uid_hex = full_uid.upper()
+                except ValueError:
+                    pass
         if "groups" in result:
             self.groups = result.get("groups") or []
             self.tests = result.get("tests") or []

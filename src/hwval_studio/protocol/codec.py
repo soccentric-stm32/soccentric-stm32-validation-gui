@@ -1106,7 +1106,10 @@ def parse_hello_reply(t: Any) -> dict[str, Any]:
         "commit": text(t.Commit()),
         "build_time": text(t.BuildTime()),
         "uid": int(t.Uid()),
-        "uid_hex": f"{int(t.Uid()):024X}",
+        # HelloReply carries only 64 of the 96 UID bits; do not pad it to
+        # 24 digits as if it were the full UID.  HWVAL gets the full value
+        # from DeviceInfo.uid (see StudioController._on_connected).
+        "uid_hex": f"{int(t.Uid()):016X}",
         "dev_id": int(t.DevId()),
         "rev_id": int(t.RevId()),
         "flash_mode": int(t.FlashMode()),
