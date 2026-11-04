@@ -1,0 +1,40 @@
+name: build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            arch: arm64
+            command: packaging/build-macos.sh
+          - os: macos-13
+            arch: x86_64
+            command: packaging/build-macos.sh
+          - os: windows-2022
+            arch: x64
+            command: powershell -File packaging/build-windows.ps1
+          - os: ubuntu-22.04
+            arch: x86_64
+            command: packaging/build-linux.sh
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[packaging]"
+      - run: python scripts/gen_protocol.py --flatc flatc
+        continue-on-error: true
+      - run: ${{ matrix.command }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hwval-studio-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/*
