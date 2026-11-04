@@ -157,8 +157,15 @@ def parse_option_output(output: str, *, optcr: int = 0, optcr1: int = 0) -> Opti
     raw: dict[str, int] = {"OPTCR": optcr, "OPTCR1": optcr1}
     match = re.search(r"user_options\s+0x([0-9A-Fa-f]+)", output)
     if match:
-        optcr = int(match.group(1), 16)
-        raw["OPTCR"] = optcr
+        # OpenOCD 0.12 prints a 12-bit view, not OPTCR: bits 0-7 are OPTCR
+        # bits 0-7 and bits 8-11 are OPTCR bits 28-31 (nDBOOT, nDBANK,
+        # DB1M, SPRMOD). RDP and WRP are not included. Only use it to
+        # rebuild OPTCR when the raw register read was not available.
+        user = int(match.group(1), 16)
+        raw["USER_OPTIONS"] = user
+        if not optcr:
+            optcr = (user & 0x0FF) | ((user & 0xF00) << 20)
+            raw["OPTCR"] = optcr
     match = re.search(r"boot_add0\s+0x([0-9A-Fa-f]+)", output)
     if match:
         raw["BOOT_ADD0"] = int(match.group(1), 16)
@@ -305,17 +312,10 @@ class OpenOcdRunner:
         }
 
     def read_option_bytes(self) -> OptionBytes:
-        try:
-            output = self.run(["init", "reset halt", "stm32f2x options_read 0"], timeout=30.0)
-            optcr = _parse_mdw(output, FLASH_OPTCR)
-            optcr1 = _parse_mdw(output, FLASH_OPTCR1)
-            if optcr is not None and optcr1 is not None:
-                return OptionBytes(optcr=optcr, optcr1=optcr1, raw={"OPTCR": optcr, "OPTCR1": optcr1})
-            options = parse_option_output(output, optcr=optcr or 0, optcr1=optcr1 or 0)
-            if options.optcr:
-                return options
-        except OpenOcdError:
-            pass
+        # Read the raw registers. "stm32f2x options_read" is not OPTCR: it
+        # prints a 12-bit user_options value without RDP/WRP, so parsing it
+        # as OPTCR made nDBANK/nDBOOT read as 0 and the write path refuse
+        # the (bogus) RDP change.
         output = self.run(
             [
                 "init",
@@ -325,18 +325,49 @@ class OpenOcdRunner:
             ],
             timeout=20.0,
         )
-        optcr = _parse_mdw(output, FLASH_OPTCR) or 0
-        optcr1 = _parse_mdw(output, FLASH_OPTCR1) or 0
-        return OptionBytes(optcr=optcr, optcr1=optcr1, raw={"OPTCR": optcr, "OPTCR1": optcr1})
+        optcr = _parse_mdw(output, FLASH_OPTCR)
+        optcr1 = _parse_mdw(output, FLASH_OPTCR1)
+        if optcr is None or optcr1 is None:
+            # Last resort: decode the OpenOCD view (no RDP/WRP).
+            output = self.run(
+                ["init", "reset halt", "stm32f2x options_read 0"], timeout=20.0
+            )
+            return parse_option_output(output, optcr=optcr or 0, optcr1=optcr1 or 0)
+        options = OptionBytes(
+            optcr=optcr, optcr1=optcr1, raw={"OPTCR": optcr, "OPTCR1": optcr1}
+        )
+        # BOOT_ADD0/1 only come from options_read; keep them for the write.
+        try:
+            text = self.run(["init", "reset halt", "stm32f2x options_read 0"], timeout=20.0)
+        except OpenOcdError:
+            return options
+        for key, value in parse_option_output(text).raw.items():
+            if key.startswith("BOOT_ADD"):
+                options.raw[key] = value
+        return options
 
-    def write_option_bytes(self, optcr: int, optcr1: int) -> None:
+    def write_option_bytes(
+        self,
+        optcr: int,
+        optcr1: int,
+        *,
+        boot_add0: int = 0x0080,
+        boot_add1: int = 0x0040,
+    ) -> None:
         # Never write RDP or WRP through this path (SWD-007).
         if ((optcr >> 8) & 0xFF) not in (0, 0xAA) and ((optcr >> 8) & 0xFF) != 0xCC:
             raise OpenOcdError("refusing to change RDP; only nDBANK/nDBOOT may be written")
+        # OpenOCD 0.12 on F7 takes <bank> <user_options> <boot_add0>
+        # <boot_add1>, where user_options is the same 12-bit view used by
+        # options_read. RDP/WRP are preserved by OpenOCD itself.
+        user_options = (optcr & 0x0FF) | ((optcr >> 20) & 0xF00)
         commands = [
             "init",
             "reset halt",
-            f"stm32f2x options_write 0 0x{optcr:08X} 0x{optcr1:08X}",
+            (
+                f"stm32f2x options_write 0 0x{user_options:03X} "
+                f"0x{boot_add0:04X} 0x{boot_add1:04X}"
+            ),
         ]
         try:
             self.run(commands, timeout=45.0)
@@ -379,8 +410,15 @@ class OpenOcdRunner:
             new |= NDBANK
         if wanted_boot:
             new |= NDBOOT
-        # Preserve every other bit, including RDP and WRP.
-        self.write_option_bytes(new, current.optcr1)
+        # Preserve every other bit, including RDP, WRP and BOOT_ADD1 (the
+        # ST system-memory recovery path). Reset defaults are used when the
+        # options_read output was unavailable.
+        self.write_option_bytes(
+            new,
+            current.optcr1,
+            boot_add0=int(current.raw.get("BOOT_ADD0", 0x0080)),
+            boot_add1=int(current.raw.get("BOOT_ADD1", 0x0040)),
+        )
         return True
 
     def mass_erase(self) -> None:
@@ -401,6 +439,9 @@ class OpenOcdRunner:
         if not p.is_file():
             raise OpenOcdError(f"firmware file not found: {p}")
         command = f'program "{p.resolve()}"'
+        if p.suffix.lower() == ".bin":
+            # A raw .bin carries no address; SWD-003 puts firmware at flash.
+            command += " 0x08000000"
         if verify:
             command += " verify"
         if reset:
