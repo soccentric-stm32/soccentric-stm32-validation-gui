@@ -264,11 +264,18 @@ class LinkSession:
         from hwval_studio.protocol.generated.hwlink import Message
         from hwval_studio.protocol.generated.hwlink.Body import Body
 
-        message = Message.Message.GetRootAs(frame.payload, 0)
-        body_type = message.BodyType()
-        if body_type == Body.NONE:
-            raise ProtocolError("FlatBuffer has no body")
-        table = codec.body_table(message)
+        try:
+            message = Message.Message.GetRootAs(frame.payload, 0)
+            body_type = message.BodyType()
+            if body_type == Body.NONE:
+                raise ProtocolError("FlatBuffer has no body")
+            table = codec.body_table(message)
+        except Exception as exc:  # unknown body type or malformed table
+            # LNK-013: a newer minor version may send events this build does
+            # not know.  Log and ignore them instead of failing the request.
+            if self.log_handler:
+                self.log_handler("WARN", f"ignored unknown event: {exc}")
+            return Event(body_type=0, payload=frame.payload, seq=frame.seq)
         event = Event(body_type=body_type, payload=frame.payload, table=table, seq=frame.seq)
         if body_type == Body.Log:
             level = codec.log_level(table)
@@ -351,7 +358,7 @@ class LinkSession:
                         self._dispatch(frame)
                         deadline = time.monotonic() + timeout
                         continue
-                    if frame.flags & FLAG_RESPONSE or frame.seq == seq:
+                    if (frame.flags & FLAG_RESPONSE) and frame.seq == seq:
                         body_type = codec.body_type(frame.payload)
                         table = codec.body_table_from_payload(frame.payload)
                         if body_type == Body.Nak and not allow_nak:
