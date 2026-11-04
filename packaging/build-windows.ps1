@@ -6,7 +6,7 @@ python scripts/make_icons.py
 pyinstaller packaging/hwval-studio.spec --noconfirm --clean
 $version = python -c "import hwval_studio; print(hwval_studio.__version__)"
 if (Get-Command wix -ErrorAction SilentlyContinue) {
-    wix build packaging/windows/Product.wxs -d Version=$version -o "dist/HWVAL_Studio-$version.msi"
+    wix build packaging/windows/Product.wxs -arch x64 -bindpath "payload=dist\hwval-studio" -d Version=$version -o "dist/HWVAL_Studio-$version.msi"
     Write-Host "MSI written to dist/HWVAL_Studio-$version.msi"
 } else {
     Write-Host "WiX not found; the one-folder build is in dist/hwval-studio"

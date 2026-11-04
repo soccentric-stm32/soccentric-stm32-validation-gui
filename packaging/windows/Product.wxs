@@ -7,7 +7,7 @@
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLDIR" Name="HWVAL Studio">
         <Component Id="MainExecutable" Guid="*">
-          <File Id="HwvalStudioExe" Source="dist\hwval-studio\hwval-studio.exe" KeyPath="yes" />
+          <File Id="HwvalStudioExe" Source="!(bindpath.payload)\hwval-studio.exe" KeyPath="yes" />
         </Component>
         <Component Id="StartMenuShortcut" Guid="*">
           <Shortcut Id="StartMenu" Directory="ProgramMenuDir" Name="HWVAL Studio"
@@ -23,6 +23,15 @@
     <Feature Id="ProductFeature" Title="HWVAL Studio" Level="1">
       <ComponentRef Id="MainExecutable" />
       <ComponentRef Id="StartMenuShortcut" />
+      <ComponentGroupRef Id="RuntimeFiles" />
     </Feature>
   </Package>
+
+  <!-- PyInstaller one-folder build: everything except the launcher lives in
+       _internal\ and must be installed next to it. -->
+  <Fragment>
+    <ComponentGroup Id="RuntimeFiles" Directory="INSTALLDIR">
+      <Files Include="!(bindpath.payload)\_internal\**" />
+    </ComponentGroup>
+  </Fragment>
 </Wix>
