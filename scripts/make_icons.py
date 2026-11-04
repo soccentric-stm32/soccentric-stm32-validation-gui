@@ -43,7 +43,8 @@ def main() -> int:
             iconset.mkdir()
             for size in (16, 32, 128, 256, 512):
                 images[size].save(str(iconset / f"icon_{size}x{size}.png"))
-                images[size].save(str(iconset / f"icon_{size}x{size}@2x.png"))
+                # @2x must be the double-size bitmap, not a copy of 1x.
+                images[size * 2].save(str(iconset / f"icon_{size}x{size}@2x.png"))
             subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(OUT / "hwval-studio.icns")], check=False)
     print(f"icons written to {OUT}")
     return 0
