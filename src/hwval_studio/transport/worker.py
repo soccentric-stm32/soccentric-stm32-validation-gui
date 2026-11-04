@@ -135,8 +135,9 @@ class SerialWorker(QThread):
                 return
             try:
                 if self._serial is not None:
-                    self._serial.write(data)
-                    self._serial.flush()
+                    with self._lock:
+                        self._serial.write(data)
+                        self._serial.flush()
                 elif self._backend is not None:
                     self._backend.write(data)
             except Exception as exc:
