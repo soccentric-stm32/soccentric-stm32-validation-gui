@@ -109,22 +109,30 @@ class HistoryStore:
             self.connection.executescript(SCHEMA)
             self.connection.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
             self.connection.commit()
-            return
-        if version > SCHEMA_VERSION:
+        elif version > SCHEMA_VERSION:
             raise RuntimeError(
                 f"history database schema {version} is newer than this application ({SCHEMA_VERSION})"
             )
-        backup = self.path.with_suffix(f".v{version}.bak")
-        try:
-            if self.path.exists():
-                shutil.copy2(self.path, backup)
-        except OSError:
-            pass
-        if version < SCHEMA_VERSION:
-            # Future migrations append here.  v1 is the initial schema.
-            self.connection.executescript(SCHEMA)
-            self.connection.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
-            self.connection.commit()
+        else:
+            backup = self.path.with_suffix(f".v{version}.bak")
+            try:
+                if self.path.exists():
+                    shutil.copy2(self.path, backup)
+            except OSError:
+                pass
+            if version < SCHEMA_VERSION:
+                # Future migrations append here.  v1 is the initial schema.
+                self.connection.executescript(SCHEMA)
+                self.connection.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
+                self.connection.commit()
+        # Query indexes, added on existing databases too.  Safe to run after
+        # the schema (fresh) or after the migration (existing).
+        self.connection.executescript(
+            "CREATE INDEX IF NOT EXISTS runs_started ON runs(started_at);"
+            "CREATE INDEX IF NOT EXISTS runs_uid ON runs(uid);"
+            "CREATE INDEX IF NOT EXISTS results_run_test ON results(run_id, test_id);"
+        )
+        self.connection.commit()
 
     def mark_incomplete_runs(self) -> None:
         with self._lock:
@@ -300,8 +308,7 @@ class HistoryStore:
             clauses.append("EXISTS (SELECT 1 FROM results t WHERE t.run_id=r.id AND t.test_id=?)")
             params.append(test_id)
         sql = (
-            "SELECT r.*, d.label AS device_label, "
-            "(SELECT COUNT(*) FROM results x WHERE x.run_id=r.id) AS n_results "
+            "SELECT r.*, d.label AS device_label "
             "FROM runs r LEFT JOIN devices d ON d.uid=r.uid "
             f"WHERE {' AND '.join(clauses)} ORDER BY r.started_at DESC, r.id DESC LIMIT ?"
         )
