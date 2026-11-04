@@ -516,44 +516,52 @@ class Client:
         self.session.event_handler = handle_event
         offset = 0
         started = time.monotonic()
-        while offset < len(body):
-            if cancel is not None and cancel.is_set():
-                self.abort_update()
-                raise DeviceError("update cancelled")
-            payload = codec.build_update_data(offset, body[offset : offset + chunk_size])
-            # A chunk may hit a 128 KB sector erase: allow a generous timeout
-            # and restart it on every Progress event (LNK-009).
-            response_type, table = self.session.request(
-                payload,
-                response_types={Body.Ack, Body.Nak},
-                timeout=8.0,
-                allow_nak=True,
+        resyncs = 0
+        try:
+            while offset < len(body):
+                if cancel is not None and cancel.is_set():
+                    self.abort_update()
+                    raise DeviceError("update cancelled")
+                payload = codec.build_update_data(offset, body[offset : offset + chunk_size])
+                # A chunk may hit a 128 KB sector erase: allow a generous
+                # timeout and restart it on every Progress event (LNK-009).
+                response_type, table = self.session.request(
+                    payload,
+                    response_types={Body.Ack, Body.Nak},
+                    timeout=8.0,
+                    allow_nak=True,
+                )
+                if response_type == Body.Nak:
+                    nak = codec.parse_nak(table)
+                    if int(nak["error"]) == 10:  # OUT_OF_ORDER: resynchronise
+                        resyncs += 1
+                        if resyncs > 8:
+                            raise DeviceError("update resync limit reached")
+                        offset = int(nak["expected_offset"])
+                        self._log("WARN", f"update resync to offset {offset}")
+                        continue
+                    raise DeviceError(f"UpdateData at {offset}: {nak['error_name']}: {nak['detail']}")
+                ack = codec.parse_ack(table)
+                next_offset = int(ack["next_offset"])
+                if next_offset <= offset:
+                    raise DeviceError(f"device did not advance past offset {offset}")
+                offset = next_offset
+                if progress:
+                    elapsed = max(0.001, time.monotonic() - started)
+                    progress(offset, len(body), offset / elapsed)
+            _, table = self.session.request(
+                codec.build_update_end(), response_types={Body.UpdateResult}, timeout=30.0
             )
-            if response_type == Body.Nak:
-                nak = codec.parse_nak(table)
-                if int(nak["error"]) == 10:  # OUT_OF_ORDER: resynchronise
-                    offset = int(nak["expected_offset"])
-                    self._log("WARN", f"update resync to offset {offset}")
-                    continue
-                raise DeviceError(f"UpdateData at {offset}: {nak['error_name']}: {nak['detail']}")
-            ack = codec.parse_ack(table)
-            next_offset = int(ack["next_offset"])
-            if next_offset <= offset:
-                raise DeviceError(f"device did not advance past offset {offset}")
-            offset = next_offset
-            if progress:
-                elapsed = max(0.001, time.monotonic() - started)
-                progress(offset, len(body), offset / elapsed)
-        self.session.event_handler = previous_event_handler
-        _, table = self.session.request(
-            codec.build_update_end(), response_types={Body.UpdateResult}, timeout=30.0
-        )
-        result = codec.parse_update_result(table)
-        if not result["success"]:
-            raise DeviceError(f"update failed: {result['error_name']}: {result['detail']}")
-        if activate:
-            self.session.request(codec.build_activate(), response_types={Body.Ack}, timeout=3.0)
-        return result
+            result = codec.parse_update_result(table)
+            if not result["success"]:
+                raise DeviceError(f"update failed: {result['error_name']}: {result['detail']}")
+            if activate:
+                self.session.request(codec.build_activate(), response_types={Body.Ack}, timeout=3.0)
+            return result
+        finally:
+            # M12: a Nak, timeout or cancel must not leave the upload's
+            # event handler installed for the rest of the session.
+            self.session.event_handler = previous_event_handler
 
     def abort_update(self) -> None:
         try:
