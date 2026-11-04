@@ -300,21 +300,26 @@ class NavigationMixin:
         self._connect_port(port)
 
     def _connect_port(self, port: str) -> None:
-        if self._port_lock is not None and port == self._port():
+        if self._port_lock is not None and port == self._locked_port:
             # Reconnect after a reset or link loss: the lock is already ours.
             self.controller.connect_device(port)
             return
+        if self._port_lock is not None:
+            # The selection changed: drop the old port's lock before taking
+            # the new one, or the old port stays locked forever.
+            release_port(self._port_lock)
+            self._port_lock = None
+            self._locked_port = None
         if self.identity is not None:
             if self._port() == port:
                 return
             self.controller.disconnect_device()
-            release_port(self._port_lock)
-            self._port_lock = None
         lock = acquire_port(port)
         if lock is None:
             self._show_error(f"{port} is already in use by another HWVAL Studio window or process.")
             return
         self._port_lock = lock
+        self._locked_port = port
         self.controller.connect_device(port)
 
     def _disconnect_clicked(self) -> None:
@@ -322,6 +327,7 @@ class NavigationMixin:
         self.controller.disconnect_device()
         release_port(self._port_lock)
         self._port_lock = None
+        self._locked_port = None
 
     def _auto_connect(self) -> None:
         if self.identity is not None or not self.preferences.auto_connect:

@@ -80,6 +80,7 @@ class MainWindow(ActionsMixin, NavigationMixin, HandlersMixin, CommandsMixin, QM
         self._windows: list[MainWindow] = []
         self._sidebar_items: dict[str, QTreeWidgetItem] = {}
         self._port_lock = None
+        self._locked_port: str | None = None
 
         self.setWindowTitle(f"{APP_NAME} {__version__}")
         self.setWindowIcon(icon("chip", COLORS["accent"], 64))
@@ -380,5 +381,6 @@ class MainWindow(ActionsMixin, NavigationMixin, HandlersMixin, CommandsMixin, QM
             pass
         release_port(self._port_lock)
         self._port_lock = None
+        self._locked_port = None
         self.logger.info("window closed")
         event.accept()
